@@ -9,4 +9,8 @@ Upload custom dataset to googe drive under MyDrive and run all the cells one aft
 The execution includes :
 1) LSA with cosine similarity
 2) Machine Learning models - SVM & Random Forest Classifier
-3) BERT (in progress) 
+3) BERT
+
+In Progress
+- Extending this idea to document datasets - PAN-PC-11
+- Finetuning parameters of these 3 techniques for further optimization
