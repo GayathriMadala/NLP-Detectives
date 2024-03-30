@@ -39,7 +39,7 @@ def calculate_similarity(text1, text2):
 df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')
 
 # similarity threshold
-threshold = 0.5
+threshold = 0.7
 
 # Calculate similarity and predict plagiarism
 predictions = []
@@ -120,7 +120,7 @@ def calculate_similarity_and_common_words(text1, text2):
 df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')
 
 # Define similarity threshold
-threshold = 0.5
+threshold = 0.7
 
 # Calculate similarity and predict plagiarism
 predictions = []
@@ -236,7 +236,7 @@ def calculate_similarity(text1, text2):
 df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')
 
 # Define similarity threshold
-threshold = 0.5
+threshold = 0.7
 
 # Calculate similarity and predict plagiarism
 predictions = []
@@ -295,7 +295,7 @@ import nltk
 nltk.download('punkt')
 
 # Load the dataset
-df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')  # Make sure to provide the correct path to your CSV file
+df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')
 
 # Preprocessing: Tokenize the text
 df['text1_tokens'] = df['text1'].apply(lambda x: word_tokenize(x.lower()))
@@ -325,7 +325,7 @@ X = np.array(df.apply(lambda row: row['text1_vector'] - row['text2_vector'], axi
 y = df['is_plagiarized'].values
 
 # Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
 
 # Train SVM classifier
 svm_clf = SVC(kernel='linear')
@@ -357,8 +357,8 @@ def create_feature_vector(text1, text2, model):
     return text1_vector - text2_vector
 
 # Two new input texts
-new_text1 = "An example of text to be checked for plagiarism."
-new_text2 = "A text that is to be compared with the previous one for plagiarism."
+new_text1 = "hi"
+new_text2 = "A swift fox of brown color leaps above a dog that is not active."
 
 # Create feature vector for the new texts
 new_feature_vector = create_feature_vector(new_text1, new_text2, word2vec_model).reshape(1, -1)
@@ -371,7 +371,209 @@ print(f"SVM Prediction for plagiarism: {'Plagiarized' if svm_prediction[0] == 1 
 rf_prediction = rf_clf.predict(new_feature_vector)
 print(f"Random Forest Prediction for plagiarism: {'Plagiarized' if rf_prediction[0] == 1 else 'Not Plagiarized'}")
 
-"""**SVM and Random Forest Classifier with custom dataset(still in progress)**"""
+"""## **BERT**"""
+
+!pip install torch transformers
+
+import pandas as pd
+from transformers import BertTokenizer
+from sklearn.model_selection import train_test_split
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+import torch
+
+# Load the dataset
+df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')  # Update the path to your dataset
+
+# Initialize the BERT tokenizer
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+# Tokenize the text
+def tokenize_for_bert(text1, text2):
+    return tokenizer(text1, text2, padding='max_length', max_length=512, truncation=True, return_tensors="pt")
+
+df['bert_tokens'] = df.apply(lambda row: tokenize_for_bert(row['text1'], row['text2']), axis=1)
+
+# Extract input_ids, attention_masks, and token_type_ids
+input_ids = torch.cat([x['input_ids'] for x in df['bert_tokens']], dim=0)
+attention_masks = torch.cat([x['attention_mask'] for x in df['bert_tokens']], dim=0)
+token_type_ids = torch.cat([x['token_type_ids'] for x in df['bert_tokens']], dim=0)
+labels = torch.tensor(df['is_plagiarized'].values)
+
+
+
+# Stratified split for input_ids and labels
+train_inputs, validation_inputs, train_labels, validation_labels = train_test_split(
+    input_ids, labels, random_state=2018, test_size=0.7, stratify=labels)
+
+# Correct stratified split for attention_masks
+train_masks, validation_masks, _, _ = train_test_split(
+    attention_masks, labels, random_state=2018, test_size=0.7, stratify=labels)
+
+# Correct stratified split for token_type_ids
+train_token_types, validation_token_types, _, _ = train_test_split(
+    token_type_ids, labels, random_state=2018, test_size=0.7, stratify=labels)
+
+# Create the DataLoader
+batch_size = 16
+
+train_data = TensorDataset(train_inputs, train_masks, train_token_types, train_labels)
+train_sampler = RandomSampler(train_data)
+train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size, pin_memory=True)
+
+validation_data = TensorDataset(validation_inputs, validation_masks, validation_token_types, validation_labels)
+validation_sampler = SequentialSampler(validation_data)
+validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size, pin_memory=True)
+
+from transformers import BertForSequenceClassification, AdamW
+
+model = BertForSequenceClassification.from_pretrained(
+    "bert-base-uncased",
+    num_labels = 2, # Binary classification (plagiarized or not)
+    output_attentions = False,
+    output_hidden_states = False,
+)
+
+# Tell pytorch to run this model on the GPU.
+
+optimizer = AdamW(model.parameters(), lr=2e-5, eps=1e-8)
+
+# Check if CUDA is available, otherwise use CPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f'Using device: {device}')
+
+# Tell the model to use the device
+model.to(device)
+
+from transformers import get_linear_schedule_with_warmup
+import numpy as np
+from sklearn.metrics import accuracy_score
+
+epochs = 2
+total_steps = len(train_dataloader) * epochs
+
+scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+
+for epoch_i in range(0, epochs):
+    print('======== Epoch {:} / {:} ========'.format(epoch_i + 1, epochs))
+    # Training step
+    model.train()
+    total_loss = 0
+
+    for step, batch in enumerate(train_dataloader):
+        b_input_ids = batch[0].to(device)
+        b_input_mask = batch[1].to(device)
+        b_labels = batch[3].to(device)
+        b_token_type_ids = batch[2].to(device)
+
+        model.zero_grad()
+        outputs = model(b_input_ids, token_type_ids=b_token_type_ids, attention_mask=b_input_mask, labels=b_labels)
+        loss = outputs.loss
+        total_loss += loss.item()
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+    avg_train_loss = total_loss / len(train_dataloader)
+    print("  Average training loss: {0:.2f}".format(avg_train_loss))
+
+    # Validation step
+    model.eval()
+    predictions , true_labels = [], []
+    for batch in validation_dataloader:
+        batch = tuple(t.to(device) for t in batch)
+        b_input_ids, b_input_mask, b_token_type_ids, b_labels = batch
+        with torch.no_grad():
+            outputs = model(b_input_ids, token_type_ids=b_token_type_ids, attention_mask=b_input_mask)
+
+        logits = outputs.logits
+        logits = logits.detach().cpu().numpy()
+        label_ids = b_labels.to('cpu').numpy()
+
+        predictions.append(logits)
+        true_labels.append(label_ids)
+
+    # Calculate the accuracy for this batch of test sentences.
+    flat_predictions = np.concatenate(predictions, axis=0)
+    flat_predictions = np.argmax(flat_predictions, axis=1).flatten()
+    flat_true_labels = np.concatenate(true_labels, axis=0)
+    val_accuracy = accuracy_score(flat_true_labels, flat_predictions)
+
+    print("  Validation Accuracy: {0:.2f}".format(val_accuracy))
+
+"""Evaluate the BERT Model with new inputs"""
+
+# Assuming `tokenizer` is your BertTokenizer instance and `model` is your trained BERT model
+sentence1 = "This is the first sentence."
+sentence2 = "This is the second sentence."
+
+
+
+# Tokenize the pair of sentences
+encoded_pair = tokenizer(sentence1, sentence2, padding='max_length', truncation=True, max_length=512, return_tensors="pt")
+
+# Extract tensor inputs
+input_ids = encoded_pair['input_ids']
+attention_mask = encoded_pair['attention_mask']
+token_type_ids = encoded_pair['token_type_ids']
+
+# Ensure model is in evaluation mode
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+import numpy as np
+
+# Assuming validation_dataloader is set up as before
+predictions, true_labels = [], []
+
+model.eval()
+for batch in validation_dataloader:
+    batch = tuple(t.to(device) for t in batch)
+    b_input_ids, b_attention_mask, b_token_type_ids, b_labels = batch
+
+    with torch.no_grad():
+        outputs = model(b_input_ids, token_type_ids=b_token_type_ids, attention_mask=b_attention_mask)
+
+    logits = outputs.logits
+    logits = logits.detach().cpu().numpy()
+    label_ids = b_labels.to('cpu').numpy()
+
+    batch_predictions = np.argmax(logits, axis=1)
+    predictions.extend(batch_predictions)
+    true_labels.extend(label_ids)
+
+
+logits = outputs.logits
+
+# Apply softmax to calculate probabilities
+probabilities = torch.softmax(logits, dim=1).cpu().numpy()
+
+# Assuming the second label (index 1) corresponds to "plagiarized"
+plagiarism_probability = probabilities[0][1]
+
+is_plagiarized = "Plagiarized" if plagiarism_probability > 0.3 else "Not Plagiarized"
+print(f"Plagiarism Probability: {plagiarism_probability:.4f}")
+print(f"Result: {is_plagiarized}")
+
+
+
+# Calculate Accuracy
+accuracy = accuracy_score(true_labels, predictions)
+# Calculate Precision, Recall, and F1 Score
+
+precision, recall, f1, _ = precision_recall_fscore_support(true_labels, predictions, average='binary')
+
+print(f"Accuracy: {accuracy:.4f}")
+print(f"Precision: {precision:.4f}")
+print(f"Recall: {recall:.4f}")
+print(f"F1 Score: {f1:.4f}")
+
+"""1) check if all three has input for 2 new sentences option
+2) are they using dataset
+3) accuracy, precision, f1-score, recall and if possible include some other metrics
+4) Show similar words in plagiarism
+5) flowcharts
+6)
+
+**SVM and Random Forest Classifier with PAN-PC-11 dataset(still in progress)**
+"""
 
 from google.colab import drive
 import os
@@ -493,4 +695,3 @@ print(classification_report(y_test, rf_predictions))
 
 print("SVM Classification Report:")
 print(classification_report(y_test, svm_predictions))
-
