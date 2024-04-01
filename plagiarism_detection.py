@@ -41,7 +41,7 @@ df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')
 # similarity threshold
 threshold = 0.7
 
-# Calculate similarity and predict plagiarism
+# Below code calculates similarity and predict plagiarism
 predictions = []
 
 #print(df.head(2))
@@ -56,7 +56,7 @@ for index, row in df.iterrows():
     predictions.append(is_plagiarized)
 
 
-# Evaluate model
+# model eavluation
 predicted = np.array(predictions)
 actual = df['is_plagiarized'].dropna()
 actual=actual.values
@@ -87,28 +87,24 @@ import warnings
 warnings.filterwarnings('ignore')
 
 def preprocess(sentence):
-    """Preprocess the sentence: lowercase, remove punctuation, tokenize."""
     sentence = sentence.lower()
     sentence = sentence.translate(str.maketrans('', '', string.punctuation))
     return ''.join(sentence)
 
 def calculate_similarity_and_common_words(text1, text2):
-    """Calculate cosine similarity between two texts and identify common high-scoring words."""
+    #This function calculates cosine similarity between 2 texts and identifies common high-scoring words.
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform([text1, text2])
     similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
 
-    # Find common words with the highest TF-IDF scores in both texts
     feature_names = vectorizer.get_feature_names_out()
     tfidf_scores_1 = tfidf_matrix[0].toarray().flatten()
     tfidf_scores_2 = tfidf_matrix[1].toarray().flatten()
 
-    # Filter words by setting a threshold or consider all with non-zero in both
     common_words_scores = {feature_names[i]: min(tfidf_scores_1[i], tfidf_scores_2[i])
                            for i in range(len(feature_names))
                            if tfidf_scores_1[i] > 0 and tfidf_scores_2[i] > 0}
 
-    # Sort by score
     sorted_common_words = sorted(common_words_scores.items(), key=lambda x: x[1], reverse=True)
 
     return similarity, sorted_common_words
@@ -122,7 +118,7 @@ df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')
 # Define similarity threshold
 threshold = 0.7
 
-# Calculate similarity and predict plagiarism
+# Below code calculates similarity and predict plagiarism
 predictions = []
 
 #print(df.head(2))
@@ -137,7 +133,7 @@ for index, row in df.iterrows():
     predictions.append(is_plagiarized)
 
 
-# Evaluate model
+# model evaluation
 predicted = np.array(predictions)
 actual = df['is_plagiarized'].dropna()
 actual=actual.values
@@ -154,7 +150,6 @@ print(preprocessed_text1)
 print(preprocessed_text2)
 similarity, common_words = calculate_similarity_and_common_words(preprocessed_text1, preprocessed_text2)
 similarity_percentage = similarity * 100
-# Printing results
 print(f"Similarity: {similarity_percentage:.2f}%")
 
 if common_words:
@@ -184,19 +179,16 @@ warnings.filterwarnings('ignore')
 
 default_similarity_value = 1;
 
-# Download NLTK data (you may comment these out after the first run)
 nltk.download('stopwords')
 nltk.download('wordnet')
 nltk.download('omw-1.4')
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 
-# Initialize NLTK stop words and lemmatizer
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
 
 
-# Helper function to map NLTK's POS tags to the format used by WordNetLemmatizer
 def get_wordnet_pos(treebank_tag):
     if treebank_tag.startswith('J'):
         return 'a'
@@ -209,20 +201,17 @@ def get_wordnet_pos(treebank_tag):
     else:
         return 'n'
 
-# Function for basic text preprocessing
 def preprocess_text(text):
-    text = text.lower()  # Convert text to lowercase
+    text = text.lower()
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)  # Remove non-alphanumeric characters
     tokens = word_tokenize(text)  # Tokenize text
-
     tagged_tokens = pos_tag(tokens)  # Get POS tags for tokens
-
     # Remove stop words and lemmatize
     tokens = [lemmatizer.lemmatize(word, get_wordnet_pos(pos)) for word, pos in tagged_tokens if word not in stop_words]
     return ' '.join(tokens)
 
 def calculate_similarity(text1, text2):
-    """Calculate cosine similarity between two texts."""
+    #This function calculates cosine similarity between 2 texts.
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform([text1, text2])
     svd = TruncatedSVD(n_components=2)
@@ -238,7 +227,7 @@ df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')
 # Define similarity threshold
 threshold = 0.7
 
-# Calculate similarity and predict plagiarism
+# Below code calculates similarity and predict plagiarism
 predictions = []
 
 #print(df.head(2))
@@ -252,7 +241,7 @@ for index, row in df.iterrows():
     is_plagiarized = int(similarity > threshold)
     predictions.append(is_plagiarized)
 
-# Evaluate model
+# model evaluation
 predicted = np.array(predictions)
 actual = df['is_plagiarized'].dropna()
 actual=actual.values
@@ -291,83 +280,63 @@ from nltk.tokenize import word_tokenize
 import numpy as np
 import nltk
 
-# Ensure you have the necessary packages
 nltk.download('punkt')
 
-# Load the dataset
 df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')
-
-# Preprocessing: Tokenize the text
 df['text1_tokens'] = df['text1'].apply(lambda x: word_tokenize(x.lower()))
 df['text2_tokens'] = df['text2'].apply(lambda x: word_tokenize(x.lower()))
-
-# Combine all tokens for Word2Vec training
 all_tokens = pd.concat([df['text1_tokens'], df['text2_tokens']]).tolist()
 
-# Train Word2Vec model
 word2vec_model = Word2Vec(sentences=all_tokens, vector_size=100, window=5, min_count=1, workers=4)
 
-# Define function to create a feature vector for each text by averaging all word vectors
 def document_vector(word_list, model):
-    # remove out-of-vocabulary words
     word_list = [word for word in word_list if word in model.wv.index_to_key]
     if len(word_list) == 0:
         return np.zeros(model.vector_size)
     else:
         return np.mean(model.wv[word_list], axis=0)
 
-# Create vectors for each text
 df['text1_vector'] = df['text1_tokens'].apply(lambda x: document_vector(x, word2vec_model))
 df['text2_vector'] = df['text2_tokens'].apply(lambda x: document_vector(x, word2vec_model))
-
-# Prepare feature vectors for model training (subtracting vectors to get the difference)
 X = np.array(df.apply(lambda row: row['text1_vector'] - row['text2_vector'], axis=1).tolist())
 y = df['is_plagiarized'].values
 
-# Split the data into training and testing sets
+# Spliting the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
 
-# Train SVM classifier
+# Training SVM classifier
 svm_clf = SVC(kernel='linear')
 svm_clf.fit(X_train, y_train)
 
-# Train Random Forest classifier
+# Training Random Forest classifier
 rf_clf = RandomForestClassifier(n_estimators=100, random_state=42)
 rf_clf.fit(X_train, y_train)
 
-# Make predictions
 svm_predictions = svm_clf.predict(X_test)
 rf_predictions = rf_clf.predict(X_test)
-
-# Evaluation
 print("SVM Classifier Report")
 print(classification_report(y_test, svm_predictions))
 
 print("Random Forest Classifier Report")
 print(classification_report(y_test, rf_predictions))
 
-# Function to preprocess and tokenize new text
 def preprocess_and_tokenize(text):
     return word_tokenize(text.lower())
 
-# Function to create a feature vector for prediction
 def create_feature_vector(text1, text2, model):
     text1_vector = document_vector(preprocess_and_tokenize(text1), model)
     text2_vector = document_vector(preprocess_and_tokenize(text2), model)
     return text1_vector - text2_vector
 
-# Two new input texts
 new_text1 = "hi"
 new_text2 = "A swift fox of brown color leaps above a dog that is not active."
-
-# Create feature vector for the new texts
 new_feature_vector = create_feature_vector(new_text1, new_text2, word2vec_model).reshape(1, -1)
 
-# Predict with SVM
+# Prediction with SVM
 svm_prediction = svm_clf.predict(new_feature_vector)
 print(f"SVM Prediction for plagiarism: {'Plagiarized' if svm_prediction[0] == 1 else 'Not Plagiarized'}")
 
-# Predict with Random Forest
+# Prediction with Random Forest
 rf_prediction = rf_clf.predict(new_feature_vector)
 print(f"Random Forest Prediction for plagiarism: {'Plagiarized' if rf_prediction[0] == 1 else 'Not Plagiarized'}")
 
@@ -384,10 +353,9 @@ import torch
 # Load the dataset
 df = pd.read_csv('/content/drive/MyDrive/plagiarism_dataset.csv')  # Update the path to your dataset
 
-# Initialize the BERT tokenizer
+# Initializing the BERT tokenizer
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-# Tokenize the text
 def tokenize_for_bert(text1, text2):
     return tokenizer(text1, text2, padding='max_length', max_length=512, truncation=True, return_tensors="pt")
 
@@ -399,21 +367,15 @@ attention_masks = torch.cat([x['attention_mask'] for x in df['bert_tokens']], di
 token_type_ids = torch.cat([x['token_type_ids'] for x in df['bert_tokens']], dim=0)
 labels = torch.tensor(df['is_plagiarized'].values)
 
-
-
-# Stratified split for input_ids and labels
 train_inputs, validation_inputs, train_labels, validation_labels = train_test_split(
     input_ids, labels, random_state=2018, test_size=0.7, stratify=labels)
 
-# Correct stratified split for attention_masks
 train_masks, validation_masks, _, _ = train_test_split(
     attention_masks, labels, random_state=2018, test_size=0.7, stratify=labels)
 
-# Correct stratified split for token_type_ids
 train_token_types, validation_token_types, _, _ = train_test_split(
     token_type_ids, labels, random_state=2018, test_size=0.7, stratify=labels)
 
-# Create the DataLoader
 batch_size = 16
 
 train_data = TensorDataset(train_inputs, train_masks, train_token_types, train_labels)
@@ -433,15 +395,11 @@ model = BertForSequenceClassification.from_pretrained(
     output_hidden_states = False,
 )
 
-# Tell pytorch to run this model on the GPU.
-
 optimizer = AdamW(model.parameters(), lr=2e-5, eps=1e-8)
 
 # Check if CUDA is available, otherwise use CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f'Using device: {device}')
-
-# Tell the model to use the device
 model.to(device)
 
 from transformers import get_linear_schedule_with_warmup
@@ -455,7 +413,6 @@ scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_t
 
 for epoch_i in range(0, epochs):
     print('======== Epoch {:} / {:} ========'.format(epoch_i + 1, epochs))
-    # Training step
     model.train()
     total_loss = 0
 
@@ -476,7 +433,7 @@ for epoch_i in range(0, epochs):
     avg_train_loss = total_loss / len(train_dataloader)
     print("  Average training loss: {0:.2f}".format(avg_train_loss))
 
-    # Validation step
+    # Validation
     model.eval()
     predictions , true_labels = [], []
     for batch in validation_dataloader:
@@ -492,7 +449,7 @@ for epoch_i in range(0, epochs):
         predictions.append(logits)
         true_labels.append(label_ids)
 
-    # Calculate the accuracy for this batch of test sentences.
+    # Calculating the accuracy for current batch of test sentences.
     flat_predictions = np.concatenate(predictions, axis=0)
     flat_predictions = np.argmax(flat_predictions, axis=1).flatten()
     flat_true_labels = np.concatenate(true_labels, axis=0)
@@ -502,25 +459,17 @@ for epoch_i in range(0, epochs):
 
 """Evaluate the BERT Model with new inputs"""
 
-# Assuming `tokenizer` is your BertTokenizer instance and `model` is your trained BERT model
 sentence1 = "This is the first sentence."
 sentence2 = "This is the second sentence."
 
-
-
-# Tokenize the pair of sentences
 encoded_pair = tokenizer(sentence1, sentence2, padding='max_length', truncation=True, max_length=512, return_tensors="pt")
 
-# Extract tensor inputs
 input_ids = encoded_pair['input_ids']
 attention_mask = encoded_pair['attention_mask']
 token_type_ids = encoded_pair['token_type_ids']
 
-# Ensure model is in evaluation mode
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import numpy as np
-
-# Assuming validation_dataloader is set up as before
 predictions, true_labels = [], []
 
 model.eval()
@@ -542,22 +491,14 @@ for batch in validation_dataloader:
 
 logits = outputs.logits
 
-# Apply softmax to calculate probabilities
 probabilities = torch.softmax(logits, dim=1).cpu().numpy()
-
-# Assuming the second label (index 1) corresponds to "plagiarized"
 plagiarism_probability = probabilities[0][1]
 
 is_plagiarized = "Plagiarized" if plagiarism_probability > 0.3 else "Not Plagiarized"
 print(f"Plagiarism Probability: {plagiarism_probability:.4f}")
 print(f"Result: {is_plagiarized}")
 
-
-
-# Calculate Accuracy
 accuracy = accuracy_score(true_labels, predictions)
-# Calculate Precision, Recall, and F1 Score
-
 precision, recall, f1, _ = precision_recall_fscore_support(true_labels, predictions, average='binary')
 
 print(f"Accuracy: {accuracy:.4f}")
@@ -565,15 +506,7 @@ print(f"Precision: {precision:.4f}")
 print(f"Recall: {recall:.4f}")
 print(f"F1 Score: {f1:.4f}")
 
-"""1) check if all three has input for 2 new sentences option
-2) are they using dataset
-3) accuracy, precision, f1-score, recall and if possible include some other metrics
-4) Show similar words in plagiarism
-5) flowcharts
-6)
-
-**SVM and Random Forest Classifier with PAN-PC-11 dataset(still in progress)**
-"""
+"""**SVM and Random Forest Classifier with PAN-PC-11 dataset(still in progress)**"""
 
 from google.colab import drive
 import os
@@ -586,7 +519,7 @@ from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
-nltk.download('punkt')  # Make sure this is uncommented if 'punkt' tokenizer is not already downloaded
+nltk.download('punkt')
 
 def read_text(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -607,89 +540,61 @@ def parse_xml_for_plagiarism(xml_file_path):
             })
     return plagiarism_cases
 
-# Define the base path to the dataset
+# NOTE : base path below is path to the dataset, update below path with actual path
 base_path = 'https://drive.google.com/drive/folders/1gwU9kIeii-VLU7SO8pi-ZKG12kXZKhk2?usp=sharing'
 
-# Define paths for suspicious and source documents
 suspicious_path = os.path.join(base_path, 'suspicious-document')
 source_path = os.path.join(base_path, 'source-document')
-
-# Placeholder for data
 text_pairs = []
-
-# Iterate through the dataset directory
 for root, dirs, files in os.walk(suspicious_path):
     for file in files:
         if file.endswith('.txt'):
             suspicious_file_path = os.path.join(root, file)
             suspicious_text = read_text(suspicious_file_path)
-
-            # Corresponding XML file
             xml_file_path = suspicious_file_path.replace('.txt', '.xml')
             plagiarism_cases = parse_xml_for_plagiarism(xml_file_path)
 
-            # For each case of plagiarism
             for case in plagiarism_cases:
-                # Calculate the character positions for the plagiarized section
                 start_pos = case['suspicious_offset']
                 end_pos = start_pos + case['suspicious_length']
                 suspicious_excerpt = suspicious_text[start_pos:end_pos]
-
-                # Read the corresponding source text
                 source_file_path = os.path.join(source_path, case['source_reference'] + '.txt')
                 source_text = read_text(source_file_path)
                 source_start_pos = case['source_offset']
                 source_end_pos = source_start_pos + case['source_length']
                 source_excerpt = source_text[source_start_pos:source_end_pos]
-
-                # Tokenize and preprocess both excerpts
                 suspicious_tokens = word_tokenize(suspicious_excerpt)
                 source_tokens = word_tokenize(source_excerpt)
-
-                # Append to the dataset (token lists can be directly used for Word2Vec training)
                 text_pairs.append((source_tokens, suspicious_tokens))
 
-# Now text_pairs contains tokenized source and suspicious excerpts ready for vectorization
-
-# The next steps would involve vectorizing the text pairs and training your machine learning models,
-# similar to the previously provided examples.
-
-# Continue with Word2Vec training, vectorization, and machine learning model training...
-
-# Flatten the list of tokenized texts to train Word2Vec
 flat_tokenized_texts = [token for pair in text_pairs for text in pair for token in text]
 
-# Train a Word2Vec model on the corpus
+# Training Word2Vec model on the corpus
 word2vec_model = Word2Vec(sentences=flat_tokenized_texts, vector_size=100, window=5, min_count=1, workers=4)
 
-# Define a function to create a feature vector for a text pair by averaging all word vectors
 def feature_vector(text_pair, model):
     source_vector = np.mean([model.wv[token] for token in text_pair[0] if token in model.wv], axis=0)
     suspicious_vector = np.mean([model.wv[token] for token in text_pair[1] if token in model.wv], axis=0)
     return np.abs(source_vector - suspicious_vector)
 
-# Create feature vectors for the dataset
 feature_vectors = np.array([feature_vector(pair, word2vec_model) for pair in text_pairs])
 
-# Define labels for the dataset: 1 for plagiarism, 0 for non-plagiarism
+# labels for the dataset: 1 for plagiarism, 0 for non-plagiarism
 labels = [1 if pair else 0 for pair in text_pairs]
 
-# Split the data into training and test sets
+# Spliting the data into training and test sets
 X_train, X_test, y_train, y_test = train_test_split(feature_vectors, labels, test_size=0.2, random_state=42)
 
-# Train a Random Forest classifier
+# Training Random Forest classifier
 rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
 rf_classifier.fit(X_train, y_train)
 
-# Train a SVM classifier
+# Training SVM classifier
 svm_classifier = SVC(kernel='linear')
 svm_classifier.fit(X_train, y_train)
-
-# Make predictions with both classifiers
 rf_predictions = rf_classifier.predict(X_test)
 svm_predictions = svm_classifier.predict(X_test)
 
-# Evaluate the classifiers
 print("Random Forest Classification Report:")
 print(classification_report(y_test, rf_predictions))
 
